@@ -39,6 +39,9 @@ jobs:
           - os: windows-latest
             name: windows-x64
             generator: "Visual Studio 17 2022"
+          - os: ubuntu-latest
+            name: android-arm64
+            generator: Ninja
 
     name: Build (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
@@ -101,7 +104,7 @@ jobs:
 
       # ---------- OS-specific deps ----------
       - name: Install deps (Ubuntu)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.name != 'android-arm64'
         run: |
           set -eux
           sudo apt-get update
@@ -116,6 +119,20 @@ jobs:
             libprotobuf-dev protobuf-compiler \
             libabsl-dev \
             libwayland-dev libdecor-0-dev
+
+      # ---------- Android NDK setup ----------
+      - name: Install Android build deps
+        if: matrix.name == 'android-arm64'
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config protobuf-compiler llvm-dev libclang-dev
+          rustup target add aarch64-linux-android
+          # Add NDK toolchain to PATH so cc-rs can find aarch64-linux-android-clang
+          NDK_TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          echo "$NDK_TOOLCHAIN" >> $GITHUB_PATH
+          LLVM_VERSION=$(llvm-config --version | cut -d. -f1)
+          echo "LIBCLANG_PATH=/usr/lib/llvm-${LLVM_VERSION}/lib" >> $GITHUB_ENV
 
       - name: Install deps (macOS)
         if: runner.os == 'macOS'
@@ -144,7 +161,7 @@ jobs:
 
       # ---------- Build environment setup ----------
       - name: Set Linux build environment
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.name != 'android-arm64'
         run: |
           echo "CXXFLAGS=-Wno-deprecated-declarations" >> $GITHUB_ENV
           echo "CFLAGS=-Wno-deprecated-declarations" >> $GITHUB_ENV
@@ -171,6 +188,8 @@ jobs:
 
           if [[ "${{ matrix.name }}" == "macos-x64" ]]; then
             ./build.sh release-examples --version "$version" --bundle --prefix "$bundleDir" --macos-arch x86_64
+          elif [[ "${{ matrix.name }}" == "android-arm64" ]]; then
+            ./build.sh release --version "$version" --bundle --prefix "$bundleDir" --ndk "$ANDROID_NDK_HOME" --android-abi arm64-v8a --android-platform android-24
           else
             ./build.sh release-examples --version "$version" --bundle --prefix "$bundleDir"
           fi
@@ -268,8 +287,8 @@ jobs:
           echo "Artifacts downloaded:"
           ls -la
           
-          # Create tar.gz for Linux and macOS
-          for platform in linux-x64 linux-arm64 macos-arm64 macos-x64; do
+          # Create tar.gz for Linux, macOS, and Android
+          for platform in linux-x64 linux-arm64 macos-arm64 macos-x64 android-arm64; do
             dirName="livekit-sdk-${platform}-${VERSION}"
             if [[ -d "${dirName}" ]]; then
               echo "Creating archive for ${platform}..."
