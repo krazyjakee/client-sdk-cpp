@@ -177,8 +177,13 @@ if(ANDROID)
   elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86_64")
     set(RUST_TARGET_TRIPLE "x86_64-linux-android")
   endif()
-  # Use the NDK's C compiler as the Rust linker so it can find sysroot libs (EGL, log, etc.)
-  set(ANDROID_NDK_LINKER "${CMAKE_C_COMPILER}")
+  # Use the NDK's target-prefixed clang as the Rust linker.
+  # The bare clang doesn't know the target/sysroot; the prefixed wrapper
+  # (e.g. aarch64-linux-android24-clang) has --target and sysroot baked in.
+  get_filename_component(_ndk_bin "${CMAKE_C_COMPILER}" DIRECTORY)
+  # Extract API level number from ANDROID_PLATFORM (e.g. "android-24" -> "24")
+  string(REGEX REPLACE "^android-" "" _api_level "${ANDROID_PLATFORM}")
+  set(ANDROID_NDK_LINKER "${_ndk_bin}/${RUST_TARGET_TRIPLE}${_api_level}-clang")
 elseif(APPLE AND CMAKE_OSX_ARCHITECTURES)
   if(CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
     set(RUST_TARGET_TRIPLE "x86_64-apple-darwin")
