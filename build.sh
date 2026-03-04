@@ -176,9 +176,11 @@ configure() {
     extra_args+=("-DCMAKE_TOOLCHAIN_FILE=${toolchain}")
   fi
   if [[ -n "${ANDROID_ABI}" ]]; then
+    extra_args+=("-DANDROID_ABI=${ANDROID_ABI}")
     extra_args+=("-DCMAKE_ANDROID_ARCH_ABI=${ANDROID_ABI}")
   fi
   if [[ -n "${ANDROID_PLATFORM}" ]]; then
+    extra_args+=("-DANDROID_PLATFORM=${ANDROID_PLATFORM}")
     extra_args+=("-DCMAKE_ANDROID_PLATFORM=${ANDROID_PLATFORM}")
   fi
   if [[ -n "${MACOS_ARCH}" ]]; then

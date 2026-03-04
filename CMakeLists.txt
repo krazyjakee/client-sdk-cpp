@@ -166,6 +166,10 @@ set(RUST_ROOT ${LIVEKIT_ROOT_DIR}/client-sdk-rust)
 # Detect Rust target triple for cross-compilation
 set(RUST_TARGET_TRIPLE "")
 if(ANDROID)
+  # NDK toolchain uses ANDROID_ABI; CMake built-in uses CMAKE_ANDROID_ARCH_ABI
+  if(NOT CMAKE_ANDROID_ARCH_ABI AND ANDROID_ABI)
+    set(CMAKE_ANDROID_ARCH_ABI "${ANDROID_ABI}")
+  endif()
   if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
     set(RUST_TARGET_TRIPLE "aarch64-linux-android")
   elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
