@@ -163,7 +163,7 @@ find_program(CARGO_EXECUTABLE NAMES cargo REQUIRED)
 
 set(RUST_ROOT ${LIVEKIT_ROOT_DIR}/client-sdk-rust)
 
-# Detect Rust target triple for cross-compilation (e.g., Android NDK)
+# Detect Rust target triple for cross-compilation
 set(RUST_TARGET_TRIPLE "")
 if(ANDROID)
   if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
@@ -172,6 +172,12 @@ if(ANDROID)
     set(RUST_TARGET_TRIPLE "armv7-linux-androideabi")
   elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86_64")
     set(RUST_TARGET_TRIPLE "x86_64-linux-android")
+  endif()
+elseif(APPLE AND CMAKE_OSX_ARCHITECTURES)
+  if(CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
+    set(RUST_TARGET_TRIPLE "x86_64-apple-darwin")
+  elseif(CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+    set(RUST_TARGET_TRIPLE "aarch64-apple-darwin")
   endif()
 endif()
 
@@ -426,9 +432,9 @@ if(LIVEKIT_IS_TOPLEVEL)
     add_custom_command(
       TARGET livekit POST_BUILD
       COMMAND /usr/bin/install_name_tool
-              -change "${RUST_ROOT}/target/release/deps/liblivekit_ffi.dylib"
+              -change "${RUST_TARGET_DIR}/release/deps/liblivekit_ffi.dylib"
                       "@rpath/liblivekit_ffi.dylib"
-              -change "${RUST_ROOT}/target/debug/deps/liblivekit_ffi.dylib"
+              -change "${RUST_TARGET_DIR}/debug/deps/liblivekit_ffi.dylib"
                       "@rpath/liblivekit_ffi.dylib"
               "$<TARGET_FILE:livekit>"
       COMMENT "Fix dependency path in liblivekit.dylib -> liblivekit_ffi.dylib"

@@ -181,6 +181,10 @@ configure() {
   if [[ -n "${ANDROID_PLATFORM}" ]]; then
     extra_args+=("-DCMAKE_ANDROID_PLATFORM=${ANDROID_PLATFORM}")
   fi
+  if [[ -n "${MACOS_ARCH}" ]]; then
+    echo "==> Setting CMAKE_OSX_ARCHITECTURES=${MACOS_ARCH}"
+    extra_args+=("-DCMAKE_OSX_ARCHITECTURES=${MACOS_ARCH}")
+  fi
   if ((${#extra_args[@]})); then
     if ! cmake --preset "${PRESET}" "${extra_args[@]}"; then
       echo "Warning: CMake preset '${PRESET}' failed. Falling back to traditional configure..."
