@@ -177,6 +177,8 @@ if(ANDROID)
   elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86_64")
     set(RUST_TARGET_TRIPLE "x86_64-linux-android")
   endif()
+  # Use the NDK's C compiler as the Rust linker so it can find sysroot libs (EGL, log, etc.)
+  set(ANDROID_NDK_LINKER "${CMAKE_C_COMPILER}")
 elseif(APPLE AND CMAKE_OSX_ARCHITECTURES)
   if(CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
     set(RUST_TARGET_TRIPLE "x86_64-apple-darwin")
@@ -213,6 +215,15 @@ endif()
 
 message(STATUS \"[run_cargo.cmake] CFG=\${CFG}  CARGO=\${CARGO}  PROTOC=\${PROTOC_PATH}  TARGET=\${RUST_TARGET}\")
 set(ENV{PROTOC} \"\${PROTOC_PATH}\")
+
+# Set Android NDK linker for Rust cross-compilation
+if(DEFINED ANDROID_NDK_LINKER AND NOT ANDROID_NDK_LINKER STREQUAL \"\")
+  # Convert target triple to the env-var form: aarch64-linux-android -> AARCH64_LINUX_ANDROID
+  string(REPLACE \"-\" \"_\" _target_upper \"\${RUST_TARGET}\")
+  string(TOUPPER \"\${_target_upper}\" _target_upper)
+  set(ENV{CARGO_TARGET_\${_target_upper}_LINKER} \"\${ANDROID_NDK_LINKER}\")
+  message(STATUS \"[run_cargo.cmake] Set CARGO_TARGET_\${_target_upper}_LINKER=\${ANDROID_NDK_LINKER}\")
+endif()
 
 execute_process(
   COMMAND \"\${CARGO}\" \${ARGS}
@@ -296,6 +307,7 @@ add_custom_command(
           -DCARGO=${CARGO_EXECUTABLE}
           -DPROTOC_PATH=${Protobuf_PROTOC_EXECUTABLE}
           -DRUST_TARGET=${RUST_TARGET_TRIPLE}
+          -DANDROID_NDK_LINKER=${ANDROID_NDK_LINKER}
           -P "${RUN_CARGO_SCRIPT}"
   WORKING_DIRECTORY "${RUST_ROOT}"
   DEPENDS ${RUST_SOURCES}
