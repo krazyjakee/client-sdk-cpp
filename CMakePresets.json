@@ -60,6 +60,16 @@
       }
     },
     {
+      "name": "android-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Android",
+        "LIVEKIT_USE_VCPKG": "OFF",
+        "LIVEKIT_USE_SYSTEM_PROTOBUF": "OFF"
+      }
+    },
+    {
       "name": "windows-release",
       "displayName": "Windows x64 Release",
       "description": "Build for Windows x64 Release (vcpkg)",
@@ -206,6 +216,48 @@
       }
     },
     {
+      "name": "android-arm64-release",
+      "displayName": "Android ARM64 Release",
+      "description": "Build for Android ARM64 Release (NDK cross-compilation)",
+      "inherits": "android-base",
+      "binaryDir": "${sourceDir}/build-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_ANDROID_ARCH_ABI": "arm64-v8a",
+        "CMAKE_ANDROID_PLATFORM": "android-24",
+        "LIVEKIT_BUILD_EXAMPLES": "OFF",
+        "LIVEKIT_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "android-arm64-debug",
+      "displayName": "Android ARM64 Debug",
+      "description": "Build for Android ARM64 Debug (NDK cross-compilation)",
+      "inherits": "android-base",
+      "binaryDir": "${sourceDir}/build-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_ANDROID_ARCH_ABI": "arm64-v8a",
+        "CMAKE_ANDROID_PLATFORM": "android-24",
+        "LIVEKIT_BUILD_EXAMPLES": "OFF",
+        "LIVEKIT_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "android-arm64-release-examples",
+      "displayName": "Android ARM64 Release with Examples",
+      "description": "Build for Android ARM64 Release with example applications",
+      "inherits": "android-base",
+      "binaryDir": "${sourceDir}/build-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_ANDROID_ARCH_ABI": "arm64-v8a",
+        "CMAKE_ANDROID_PLATFORM": "android-24",
+        "LIVEKIT_BUILD_EXAMPLES": "ON",
+        "LIVEKIT_BUILD_TESTS": "OFF"
+      }
+    },
+    {
       "name": "windows-release-tests",
       "displayName": "Windows x64 Release with Tests",
       "description": "Build for Windows x64 Release with test suite",
@@ -330,6 +382,18 @@
     {
       "name": "macos-debug-examples",
       "configurePreset": "macos-debug-examples"
+    },
+    {
+      "name": "android-arm64-release",
+      "configurePreset": "android-arm64-release"
+    },
+    {
+      "name": "android-arm64-debug",
+      "configurePreset": "android-arm64-debug"
+    },
+    {
+      "name": "android-arm64-release-examples",
+      "configurePreset": "android-arm64-release-examples"
     },
     {
       "name": "windows-release-tests",

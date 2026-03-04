@@ -163,6 +163,24 @@ find_program(CARGO_EXECUTABLE NAMES cargo REQUIRED)
 
 set(RUST_ROOT ${LIVEKIT_ROOT_DIR}/client-sdk-rust)
 
+# Detect Rust target triple for cross-compilation (e.g., Android NDK)
+set(RUST_TARGET_TRIPLE "")
+if(ANDROID)
+  if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
+    set(RUST_TARGET_TRIPLE "aarch64-linux-android")
+  elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
+    set(RUST_TARGET_TRIPLE "armv7-linux-androideabi")
+  elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86_64")
+    set(RUST_TARGET_TRIPLE "x86_64-linux-android")
+  endif()
+endif()
+
+if(RUST_TARGET_TRIPLE)
+  set(RUST_TARGET_DIR "${RUST_ROOT}/target/${RUST_TARGET_TRIPLE}")
+else()
+  set(RUST_TARGET_DIR "${RUST_ROOT}/target")
+endif()
+
 set(RUN_CARGO_SCRIPT ${LIVEKIT_BINARY_DIR}/run_cargo.cmake)
 file(WRITE ${RUN_CARGO_SCRIPT}
 "if(NOT DEFINED CFG)
@@ -179,8 +197,11 @@ set(ARGS build)
 if(NOT CFG STREQUAL \"Debug\")
   list(APPEND ARGS --release)
 endif()
+if(DEFINED RUST_TARGET AND NOT RUST_TARGET STREQUAL \"\")
+  list(APPEND ARGS --target \${RUST_TARGET})
+endif()
 
-message(STATUS \"[run_cargo.cmake] CFG=\${CFG}  CARGO=\${CARGO}  PROTOC=\${PROTOC_PATH}\")
+message(STATUS \"[run_cargo.cmake] CFG=\${CFG}  CARGO=\${CARGO}  PROTOC=\${PROTOC_PATH}  TARGET=\${RUST_TARGET}\")
 set(ENV{PROTOC} \"\${PROTOC_PATH}\")
 
 execute_process(
@@ -197,11 +218,11 @@ endif()
 if(WIN32)
   add_library(livekit_ffi SHARED IMPORTED GLOBAL)
   # DLL import libraries (.dll.lib)
-  set(RUST_IMPLIB_DEBUG   "${RUST_ROOT}/target/debug/livekit_ffi.dll.lib")
-  set(RUST_IMPLIB_RELEASE "${RUST_ROOT}/target/release/livekit_ffi.dll.lib")
+  set(RUST_IMPLIB_DEBUG   "${RUST_TARGET_DIR}/debug/livekit_ffi.dll.lib")
+  set(RUST_IMPLIB_RELEASE "${RUST_TARGET_DIR}/release/livekit_ffi.dll.lib")
   # Actual DLL files
-  set(RUST_DLL_DEBUG      "${RUST_ROOT}/target/debug/livekit_ffi.dll")
-  set(RUST_DLL_RELEASE    "${RUST_ROOT}/target/release/livekit_ffi.dll")
+  set(RUST_DLL_DEBUG      "${RUST_TARGET_DIR}/debug/livekit_ffi.dll")
+  set(RUST_DLL_RELEASE    "${RUST_TARGET_DIR}/release/livekit_ffi.dll")
   # For OUTPUT dependency checking
   set(RUST_LIB_DEBUG   "${RUST_IMPLIB_DEBUG}")
   set(RUST_LIB_RELEASE "${RUST_IMPLIB_RELEASE}")
@@ -223,8 +244,8 @@ if(WIN32)
 elseif(APPLE)
   # macOS: use dynamic library (.dylib) to isolate Debug/Release ABI differences
   add_library(livekit_ffi SHARED IMPORTED GLOBAL)
-  set(RUST_LIB_DEBUG   "${RUST_ROOT}/target/debug/liblivekit_ffi.dylib")
-  set(RUST_LIB_RELEASE "${RUST_ROOT}/target/release/liblivekit_ffi.dylib")
+  set(RUST_LIB_DEBUG   "${RUST_TARGET_DIR}/debug/liblivekit_ffi.dylib")
+  set(RUST_LIB_RELEASE "${RUST_TARGET_DIR}/release/liblivekit_ffi.dylib")
   
   set_target_properties(livekit_ffi PROPERTIES
     IMPORTED_CONFIGURATIONS "Debug;Release;RelWithDebInfo;MinSizeRel"
@@ -236,10 +257,10 @@ elseif(APPLE)
     INTERFACE_INCLUDE_DIRECTORIES    "${RUST_ROOT}/livekit-ffi/include"
   )
 else()
-  # Linux: use dynamic library (.so) to isolate Debug/Release ABI differences
+  # Linux/Android: use dynamic library (.so) to isolate Debug/Release ABI differences
   add_library(livekit_ffi SHARED IMPORTED GLOBAL)
-  set(RUST_LIB_DEBUG   "${RUST_ROOT}/target/debug/liblivekit_ffi.so")
-  set(RUST_LIB_RELEASE "${RUST_ROOT}/target/release/liblivekit_ffi.so")
+  set(RUST_LIB_DEBUG   "${RUST_TARGET_DIR}/debug/liblivekit_ffi.so")
+  set(RUST_LIB_RELEASE "${RUST_TARGET_DIR}/release/liblivekit_ffi.so")
   
   set_target_properties(livekit_ffi PROPERTIES
     IMPORTED_CONFIGURATIONS "Debug;Release;RelWithDebInfo;MinSizeRel"
@@ -264,6 +285,7 @@ add_custom_command(
           -DRUST_ROOT=${RUST_ROOT}
           -DCARGO=${CARGO_EXECUTABLE}
           -DPROTOC_PATH=${Protobuf_PROTOC_EXECUTABLE}
+          -DRUST_TARGET=${RUST_TARGET_TRIPLE}
           -P "${RUN_CARGO_SCRIPT}"
   WORKING_DIRECTORY "${RUST_ROOT}"
   DEPENDS ${RUST_SOURCES}
@@ -358,10 +380,10 @@ if(LIVEKIT_IS_TOPLEVEL)
   # Copy livekit_ffi library to output directory alongside livekit library
   if(WIN32)
     # Copy both DLL and import library
-    set(FFI_DLL_DEBUG     "${RUST_ROOT}/target/debug/livekit_ffi.dll")
-    set(FFI_DLL_RELEASE   "${RUST_ROOT}/target/release/livekit_ffi.dll")
-    set(FFI_IMPLIB_DEBUG  "${RUST_ROOT}/target/debug/livekit_ffi.dll.lib")
-    set(FFI_IMPLIB_RELEASE "${RUST_ROOT}/target/release/livekit_ffi.dll.lib")
+    set(FFI_DLL_DEBUG     "${RUST_TARGET_DIR}/debug/livekit_ffi.dll")
+    set(FFI_DLL_RELEASE   "${RUST_TARGET_DIR}/release/livekit_ffi.dll")
+    set(FFI_IMPLIB_DEBUG  "${RUST_TARGET_DIR}/debug/livekit_ffi.dll.lib")
+    set(FFI_IMPLIB_RELEASE "${RUST_TARGET_DIR}/release/livekit_ffi.dll.lib")
     
     # Copy DLL file
     add_custom_command(
@@ -381,8 +403,8 @@ if(LIVEKIT_IS_TOPLEVEL)
     )
   elseif(APPLE)
     # macOS: copy .dylib
-    set(FFI_LIB_DEBUG   "${RUST_ROOT}/target/debug/liblivekit_ffi.dylib")
-    set(FFI_LIB_RELEASE "${RUST_ROOT}/target/release/liblivekit_ffi.dylib")
+    set(FFI_LIB_DEBUG   "${RUST_TARGET_DIR}/debug/liblivekit_ffi.dylib")
+    set(FFI_LIB_RELEASE "${RUST_TARGET_DIR}/release/liblivekit_ffi.dylib")
     add_custom_command(
       TARGET livekit POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy
@@ -413,9 +435,9 @@ if(LIVEKIT_IS_TOPLEVEL)
       VERBATIM
     )
   else()
-    # Linux: copy .so
-    set(FFI_LIB_DEBUG   "${RUST_ROOT}/target/debug/liblivekit_ffi.so")
-    set(FFI_LIB_RELEASE "${RUST_ROOT}/target/release/liblivekit_ffi.so")
+    # Linux/Android: copy .so
+    set(FFI_LIB_DEBUG   "${RUST_TARGET_DIR}/debug/liblivekit_ffi.so")
+    set(FFI_LIB_RELEASE "${RUST_TARGET_DIR}/release/liblivekit_ffi.so")
     add_custom_command(
       TARGET livekit POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy
@@ -488,9 +510,13 @@ if(WIN32)
   )
 endif()
 
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT ANDROID)
   find_package(OpenSSL REQUIRED)
   target_link_libraries(livekit PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+endif()
+
+if(ANDROID)
+  target_link_libraries(livekit PRIVATE log android)
 endif()
 
 if(MSVC)

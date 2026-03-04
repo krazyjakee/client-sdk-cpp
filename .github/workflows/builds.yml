@@ -58,6 +58,10 @@ jobs:
             name: windows-x64
             build_cmd: .\build.cmd release-examples
             build_dir: build-release
+          - os: ubuntu-latest
+            name: android-arm64
+            build_cmd: ./build.sh release --ndk $ANDROID_NDK_HOME --android-abi arm64-v8a --android-platform android-24
+            build_dir: build-release
 
     name: Build (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
@@ -86,7 +90,7 @@ jobs:
 
       # ---------- OS-specific deps ----------
       - name: Install deps (Ubuntu)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.name != 'android-arm64'
         run: |
           set -eux
           sudo apt-get update
@@ -108,6 +112,15 @@ jobs:
           set -eux
           brew update
           brew install cmake ninja protobuf abseil
+
+      # ---------- Android NDK setup ----------
+      - name: Install Android build deps
+        if: matrix.name == 'android-arm64'
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config
+          rustup target add aarch64-linux-android
 
       # ---------- Rust toolchain ----------
       - name: Install Rust (stable)
@@ -133,7 +146,7 @@ jobs:
 
       # ---------- Build environment setup ----------
       - name: Set Linux build environment
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.name != 'android-arm64'
         run: |
           echo "CXXFLAGS=-Wno-deprecated-declarations" >> $GITHUB_ENV
           echo "CFLAGS=-Wno-deprecated-declarations" >> $GITHUB_ENV
@@ -155,7 +168,7 @@ jobs:
 
       # ---------- Smoke test examples ----------
       - name: Smoke test examples (Unix)
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && matrix.name != 'android-arm64'
         shell: bash
         run: |
           set -x

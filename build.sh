@@ -13,6 +13,9 @@ ARCHIVE_NAME=""
 GENERATOR=""
 MACOS_ARCH=""
 LIVEKIT_VERSION=""
+ANDROID_ABI=""
+ANDROID_PLATFORM=""
+NDK_PATH=""
 
 # Detect OS for preset selection
 detect_os() {
@@ -53,6 +56,9 @@ Options (for debug / release):
   -G <generator>           CMake generator (e.g. Ninja, "Unix Makefiles")
   --macos-arch <arch>      macOS architecture override (arm64 or x86_64)
                            Sets CMAKE_OSX_ARCHITECTURES
+  --ndk <path>             Path to Android NDK (sets CMAKE_TOOLCHAIN_FILE)
+  --android-abi <abi>      Android ABI (e.g., arm64-v8a, armeabi-v7a, x86_64)
+  --android-platform <lvl> Android minimum API level (e.g., android-24)
 
 Examples:
   ./build.sh release
@@ -62,6 +68,7 @@ Examples:
   ./build.sh release-tests
   ./build.sh clean
   ./build.sh clean-all
+  ./build.sh release --ndk \$ANDROID_NDK_HOME --android-abi arm64-v8a --android-platform android-24
 EOF
 }
 
@@ -110,6 +117,30 @@ parse_opts() {
         fi
         shift 2
         ;;
+      --ndk)
+        NDK_PATH="${2:-}"
+        if [[ -z "${NDK_PATH}" ]]; then
+          echo "ERROR: --ndk requires a path to the Android NDK"
+          exit 1
+        fi
+        shift 2
+        ;;
+      --android-abi)
+        ANDROID_ABI="${2:-}"
+        if [[ -z "${ANDROID_ABI}" ]]; then
+          echo "ERROR: --android-abi requires a value (e.g., arm64-v8a)"
+          exit 1
+        fi
+        shift 2
+        ;;
+      --android-platform)
+        ANDROID_PLATFORM="${2:-}"
+        if [[ -z "${ANDROID_PLATFORM}" ]]; then
+          echo "ERROR: --android-platform requires a value (e.g., android-24)"
+          exit 1
+        fi
+        shift 2
+        ;;
       --version)
         LIVEKIT_VERSION="${2:-}"
         [[ -n "${LIVEKIT_VERSION}" ]] || { echo "ERROR: --version requires a value"; exit 1; }
@@ -134,6 +165,21 @@ configure() {
   if [[ -n "${LIVEKIT_VERSION}" ]]; then
     echo "==> Injecting LIVEKIT_VERSION=${LIVEKIT_VERSION}"
     extra_args+=("-DLIVEKIT_VERSION=${LIVEKIT_VERSION}")
+  fi
+  if [[ -n "${NDK_PATH}" ]]; then
+    local toolchain="${NDK_PATH}/build/cmake/android.toolchain.cmake"
+    if [[ ! -f "${toolchain}" ]]; then
+      echo "ERROR: NDK toolchain file not found: ${toolchain}"
+      exit 1
+    fi
+    echo "==> Using Android NDK toolchain: ${toolchain}"
+    extra_args+=("-DCMAKE_TOOLCHAIN_FILE=${toolchain}")
+  fi
+  if [[ -n "${ANDROID_ABI}" ]]; then
+    extra_args+=("-DCMAKE_ANDROID_ARCH_ABI=${ANDROID_ABI}")
+  fi
+  if [[ -n "${ANDROID_PLATFORM}" ]]; then
+    extra_args+=("-DCMAKE_ANDROID_PLATFORM=${ANDROID_PLATFORM}")
   fi
   if ((${#extra_args[@]})); then
     if ! cmake --preset "${PRESET}" "${extra_args[@]}"; then
@@ -318,11 +364,28 @@ fi
 
 cmd="$1"
 parse_opts "$@"
+
+# Override OS_TYPE for Android cross-compilation
+if [[ -n "${NDK_PATH}" || -n "${ANDROID_ABI}" ]]; then
+  OS_TYPE="android"
+  # Determine ABI suffix for preset name
+  case "${ANDROID_ABI}" in
+    arm64-v8a)   ANDROID_PRESET_ARCH="arm64" ;;
+    armeabi-v7a) ANDROID_PRESET_ARCH="arm32" ;;
+    x86_64)      ANDROID_PRESET_ARCH="x86_64" ;;
+    *)           ANDROID_PRESET_ARCH="arm64" ;;  # Default to arm64
+  esac
+fi
+
 case "${cmd}" in
   debug)
     BUILD_TYPE="Debug"
     BUILD_DIR="${PROJECT_ROOT}/build-debug"
-    PRESET="${OS_TYPE}-debug"
+    if [[ "${OS_TYPE}" == "android" ]]; then
+      PRESET="android-${ANDROID_PRESET_ARCH}-debug"
+    else
+      PRESET="${OS_TYPE}-debug"
+    fi
     configure
     build
     if [[ "${DO_BUNDLE}" == "1" ]]; then
@@ -335,7 +398,11 @@ case "${cmd}" in
   debug-examples)
     BUILD_TYPE="Debug"
     BUILD_DIR="${PROJECT_ROOT}/build-debug"
-    PRESET="${OS_TYPE}-debug-examples"
+    if [[ "${OS_TYPE}" == "android" ]]; then
+      PRESET="android-${ANDROID_PRESET_ARCH}-debug-examples"
+    else
+      PRESET="${OS_TYPE}-debug-examples"
+    fi
     configure
     build
     if [[ "${DO_BUNDLE}" == "1" ]]; then
@@ -348,7 +415,11 @@ case "${cmd}" in
   release)
     BUILD_TYPE="Release"
     BUILD_DIR="${PROJECT_ROOT}/build-release"
-    PRESET="${OS_TYPE}-release"
+    if [[ "${OS_TYPE}" == "android" ]]; then
+      PRESET="android-${ANDROID_PRESET_ARCH}-release"
+    else
+      PRESET="${OS_TYPE}-release"
+    fi
     configure
     build
     if [[ "${DO_BUNDLE}" == "1" ]]; then
@@ -361,7 +432,11 @@ case "${cmd}" in
   release-examples)
     BUILD_TYPE="Release"
     BUILD_DIR="${PROJECT_ROOT}/build-release"
-    PRESET="${OS_TYPE}-release-examples"
+    if [[ "${OS_TYPE}" == "android" ]]; then
+      PRESET="android-${ANDROID_PRESET_ARCH}-release-examples"
+    else
+      PRESET="${OS_TYPE}-release-examples"
+    fi
     configure
     build
     if [[ "${DO_BUNDLE}" == "1" ]]; then
@@ -374,7 +449,11 @@ case "${cmd}" in
   debug-tests)
     BUILD_TYPE="Debug"
     BUILD_DIR="${PROJECT_ROOT}/build-debug"
-    PRESET="${OS_TYPE}-debug-tests"
+    if [[ "${OS_TYPE}" == "android" ]]; then
+      PRESET="android-${ANDROID_PRESET_ARCH}-debug-tests"
+    else
+      PRESET="${OS_TYPE}-debug-tests"
+    fi
     configure
     build
     if [[ "${DO_BUNDLE}" == "1" ]]; then
@@ -387,7 +466,11 @@ case "${cmd}" in
   release-tests)
     BUILD_TYPE="Release"
     BUILD_DIR="${PROJECT_ROOT}/build-release"
-    PRESET="${OS_TYPE}-release-tests"
+    if [[ "${OS_TYPE}" == "android" ]]; then
+      PRESET="android-${ANDROID_PRESET_ARCH}-release-tests"
+    else
+      PRESET="${OS_TYPE}-release-tests"
+    fi
     configure
     build
     if [[ "${DO_BUNDLE}" == "1" ]]; then
