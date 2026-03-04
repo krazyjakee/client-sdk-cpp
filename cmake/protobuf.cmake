@@ -142,7 +142,14 @@ endif()
 FetchContent_MakeAvailable(livekit_abseil)
 
 # Workaround for some abseil flags on Apple Silicon.
-if(APPLE AND (CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64"))
+# When building natively for arm64, Abseil may add -Xarch_x86_64/-msse4.1/-maes
+# flags intended for x86_64 slices. Strip them only when we are NOT targeting
+# x86_64, so they are preserved during cross-compilation to x86_64.
+set(_lk_targeting_x86_64 FALSE)
+if(DEFINED CMAKE_OSX_ARCHITECTURES AND "x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES)
+  set(_lk_targeting_x86_64 TRUE)
+endif()
+if(APPLE AND (CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64") AND NOT _lk_targeting_x86_64)
   foreach(t
     absl_random_internal_randen_hwaes_impl
     absl_random_internal_randen_hwaes

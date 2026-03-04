@@ -123,7 +123,9 @@ jobs:
         run: |
           set -eux
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build pkg-config protobuf-compiler
+          sudo apt-get install -y cmake ninja-build pkg-config protobuf-compiler llvm-dev libclang-dev
+          LLVM_VERSION=$(llvm-config --version | cut -d. -f1)
+          echo "LIBCLANG_PATH=/usr/lib/llvm-${LLVM_VERSION}/lib" >> $GITHUB_ENV
           rustup target add aarch64-linux-android
 
       # ---------- Rust toolchain ----------

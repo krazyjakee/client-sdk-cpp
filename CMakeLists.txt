@@ -577,61 +577,63 @@ endif()
 
 # -------------------- macOS install_name fixes (SDK bundle) --------------------
 if(APPLE)
-  install(CODE [[
+  # Capture RUST_TARGET_DIR at configure time so it is available during install.
+  set(_LK_RUST_TARGET_DIR "${RUST_TARGET_DIR}")
+  install(CODE "
     # Respect DESTDIR if used
-    set(_prefix "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}")
+    set(_prefix \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\")
 
-    # CMAKE_INSTALL_LIBDIR is usually "lib"
-    set(_libdir "${_prefix}/lib")
+    # CMAKE_INSTALL_LIBDIR is usually \"lib\"
+    set(_libdir \"\${_prefix}/lib\")
 
-    set(_livekit "${_libdir}/liblivekit.dylib")
-    set(_ffi     "${_libdir}/liblivekit_ffi.dylib")
+    set(_livekit \"\${_libdir}/liblivekit.dylib\")
+    set(_ffi     \"\${_libdir}/liblivekit_ffi.dylib\")
 
-    message(STATUS "macOS fixup: prefix=${_prefix}")
-    message(STATUS "macOS fixup: libdir=${_libdir}")
-    message(STATUS "macOS fixup: patching ${_ffi}")
-    message(STATUS "macOS fixup: patching ${_livekit}")
+    message(STATUS \"macOS fixup: prefix=\${_prefix}\")
+    message(STATUS \"macOS fixup: libdir=\${_libdir}\")
+    message(STATUS \"macOS fixup: patching \${_ffi}\")
+    message(STATUS \"macOS fixup: patching \${_livekit}\")
 
-    if(NOT EXISTS "${_ffi}")
-      message(FATAL_ERROR "Expected ${_ffi} to exist at install time")
+    if(NOT EXISTS \"\${_ffi}\")
+      message(FATAL_ERROR \"Expected \${_ffi} to exist at install time\")
     endif()
-    if(NOT EXISTS "${_livekit}")
-      message(FATAL_ERROR "Expected ${_livekit} to exist at install time")
+    if(NOT EXISTS \"\${_livekit}\")
+      message(FATAL_ERROR \"Expected \${_livekit} to exist at install time\")
     endif()
 
-    # Make the dylib's "id" relocatable
+    # Make the dylib's \"id\" relocatable
     execute_process(
-      COMMAND /usr/bin/install_name_tool -id "@rpath/liblivekit_ffi.dylib" "${_ffi}"
+      COMMAND /usr/bin/install_name_tool -id \"@rpath/liblivekit_ffi.dylib\" \"\${_ffi}\"
       RESULT_VARIABLE _rv
     )
     if(NOT _rv EQUAL 0)
-      message(FATAL_ERROR "install_name_tool -id failed for ${_ffi}")
+      message(FATAL_ERROR \"install_name_tool -id failed for \${_ffi}\")
     endif()
 
     # Make liblivekit depend on @rpath/liblivekit_ffi.dylib (replace any absolute build path)
     execute_process(
       COMMAND /usr/bin/install_name_tool
-        -change "${RUST_ROOT}/target/release/deps/liblivekit_ffi.dylib" "@rpath/liblivekit_ffi.dylib"
-        -change "${RUST_ROOT}/target/debug/deps/liblivekit_ffi.dylib"   "@rpath/liblivekit_ffi.dylib"
-        "${_livekit}"
+        -change \"${_LK_RUST_TARGET_DIR}/release/deps/liblivekit_ffi.dylib\" \"@rpath/liblivekit_ffi.dylib\"
+        -change \"${_LK_RUST_TARGET_DIR}/debug/deps/liblivekit_ffi.dylib\"   \"@rpath/liblivekit_ffi.dylib\"
+        \"\${_livekit}\"
       RESULT_VARIABLE _rv
     )
     # Note: if the old path isn't present, install_name_tool returns non-zero.
     # That can happen depending on how the dylib was built. Don't hard-fail here.
     if(NOT _rv EQUAL 0)
-      message(STATUS "macOS fixup: -change returned ${_rv} (old path may not exist); continuing")
+      message(STATUS \"macOS fixup: -change returned \${_rv} (old path may not exist); continuing\")
     endif()
 
     # Ensure @rpath can resolve when loaded from SDK's lib/ directory
     execute_process(
-      COMMAND /usr/bin/install_name_tool -add_rpath "@loader_path" "${_livekit}"
+      COMMAND /usr/bin/install_name_tool -add_rpath \"@loader_path\" \"\${_livekit}\"
       RESULT_VARIABLE _rv
     )
     # -add_rpath fails if already present; don't fail the install.
     if(NOT _rv EQUAL 0)
-      message(STATUS "macOS fixup: -add_rpath returned ${_rv} (may already exist); continuing")
+      message(STATUS \"macOS fixup: -add_rpath returned \${_rv} (may already exist); continuing\")
     endif()
-  ]])
+  ")
 endif()
 
 

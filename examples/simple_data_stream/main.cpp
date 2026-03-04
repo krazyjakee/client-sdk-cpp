@@ -187,6 +187,19 @@ void handleWelcomeImage(std::shared_ptr<livekit::ByteStreamReader> reader,
 } // namespace
 
 int main(int argc, char *argv[]) {
+  // --help
+  for (int i = 1; i < argc; ++i) {
+    std::string a = argv[i];
+    if (a == "-h" || a == "--help") {
+      std::cerr
+          << "Usage:\n"
+          << "  " << argv[0] << " <ws-url> <token>\n\n"
+          << "Env fallbacks:\n"
+          << "  LIVEKIT_URL, LIVEKIT_TOKEN\n";
+      return 0;
+    }
+  }
+
   // Get URL and token from env.
   std::string url = getenvOrEmpty("LIVEKIT_URL");
   std::string token = getenvOrEmpty("LIVEKIT_TOKEN");
