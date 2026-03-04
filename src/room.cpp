@@ -92,6 +92,11 @@ Room::~Room() {
   // local_participant_to_cleanup is destroyed here after listener is removed
 }
 
+E2EEManager *Room::e2eeManager() const {
+  std::lock_guard<std::mutex> g(lock_);
+  return e2ee_manager_.get();
+}
+
 void Room::setDelegate(RoomDelegate *delegate) {
   std::lock_guard<std::mutex> g(lock_);
   delegate_ = delegate;
