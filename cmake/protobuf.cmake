@@ -174,9 +174,27 @@ if(TARGET protobuf::protoc)
 elseif(TARGET protoc)
   set(Protobuf_PROTOC_EXECUTABLE "$<TARGET_FILE:protoc>" CACHE STRING "protoc (vendored)" FORCE)
 elseif(CMAKE_CROSSCOMPILING)
-  # Cross-compiling: protoc binaries not built; find a host protoc in PATH
+  # Cross-compiling: protoc binaries not built for the target platform.
+  # Use a host protoc from PATH — it MUST match the vendored protobuf version
+  # (v${LIVEKIT_PROTOBUF_VERSION}) to avoid generated code / header mismatches.
   find_program(Protobuf_PROTOC_EXECUTABLE NAMES protoc REQUIRED)
   message(STATUS "Cross-compiling: using host protoc: ${Protobuf_PROTOC_EXECUTABLE}")
+  # Verify version compatibility
+  execute_process(
+    COMMAND ${Protobuf_PROTOC_EXECUTABLE} --version
+    OUTPUT_VARIABLE _protoc_version_output
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  message(STATUS "Cross-compiling: host protoc version: ${_protoc_version_output}")
+  string(REGEX MATCH "[0-9]+\\.[0-9]+" _protoc_version "${_protoc_version_output}")
+  if(NOT _protoc_version VERSION_EQUAL LIVEKIT_PROTOBUF_VERSION)
+    message(WARNING
+      "Host protoc version (${_protoc_version}) does not match vendored protobuf "
+      "version (${LIVEKIT_PROTOBUF_VERSION}). This may cause build failures due to "
+      "incompatible generated code. Install protoc v${LIVEKIT_PROTOBUF_VERSION} or "
+      "set Protobuf_PROTOC_EXECUTABLE to a matching protoc binary."
+    )
+  endif()
 else()
   message(FATAL_ERROR "Vendored protobuf did not create a protoc target")
 endif()
